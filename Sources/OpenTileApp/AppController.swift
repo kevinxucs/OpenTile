@@ -7,11 +7,14 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
     @Published var config = Configuration()
     @Published var message = ""
     @Published var permission = WindowDriver.trusted
-    let driver = WindowDriver()
+    let driver: WindowDriver
     let hotkeys = Hotkeys()
     var status: NSStatusItem?
     var panels: [TilePanel] = []
     var grids: [GridView] = []
+    var panelStatusLabels: [NSTextField] = []
+    var panelHelpLabels: [NSTextField] = []
+    var panelPermissionButtons: [NSButton] = []
     var previews: [NSPanel] = []
     var settingsWindow: NSWindow?
     var fixture: Fixture?
@@ -24,22 +27,29 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
     var currentSubdivision = false
     var observedWindow: ManagedWindow?
     var observedFrame: CGRect?
+    init(driver: WindowDriver = WindowDriver()) {
+        self.driver = driver
+        super.init()
+    }
     var configURL: URL {
         if let root = ProcessInfo.processInfo.environment["OPENTILE_CONFIG_DIR"] { return URL(fileURLWithPath:root).appendingPathComponent("config.json") }
         return FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("OpenTile/config.json")
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
+        configureBackgroundApplication(NSApp)
         installMenus(self)
         if Bundle.main.bundleIdentifier == "org.opentile.fixture" || CommandLine.arguments.contains("--fixture") {
             fixture = Fixture(); fixture?.show(); return
         }
-        NSApp.setActivationPolicy(.accessory)
         if let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != ProcessInfo.processInfo.processIdentifier { driver.lastExternal = app }
         observer = NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.didActivateApplicationNotification,object:nil,queue:.main) { [weak self] notification in
             guard let self, let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                   app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
             self.driver.lastExternal = app
-            if !self.panels.isEmpty { try? self.driver.capture() }
+            if !self.panels.isEmpty {
+                do { try self.driver.capture(); self.updatePanelStatus(nil) }
+                catch { self.updatePanelStatus(error.localizedDescription) }
+            }
         }
         screenObserver = NotificationCenter.default.addObserver(forName:NSApplication.didChangeScreenParametersNotification,object:nil,queue:.main) { [weak self] _ in self?.dismiss() }
         load(); currentRows = config.rows; currentColumns = config.columns
@@ -49,7 +59,7 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
             currentSubdivision = UserDefaults.standard.bool(forKey:"sessionSubdivision")
         }
         refreshStatus(); registerHotkeys()
-        showSettings()
+        if CommandLine.arguments.contains("--settings") { showSettings() }
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if let fixture { fixture.show() } else { toggle() }; return false
@@ -96,6 +106,7 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
     }
     @objc func quit() { NSApp.terminate(nil) }
     @objc func showSettings() {
+        configureBackgroundApplication(NSApp)
         dismiss(); permission = WindowDriver.trusted
         if settingsWindow == nil {
             let w = NSWindow(contentRect:CGRect(x:0,y:0,width:780,height:740),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
@@ -106,8 +117,16 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
     }
     @objc func toggle() {
         if !panels.isEmpty { dismiss(); return }
+        presentTilePanels()
+    }
+    func presentTilePanels(captureTarget: Bool = true) {
+        configureBackgroundApplication(NSApp)
         permission = WindowDriver.trusted
-        do { try driver.capture() } catch { message = error.localizedDescription; showSettings(); return }
+        var issue: String?
+        if captureTarget {
+            do { try driver.capture() }
+            catch { issue = error.localizedDescription; message = error.localizedDescription }
+        }
         if config.resetGrid { currentRows = config.rows; currentColumns = config.columns; currentSubdivision = false }
         settingsWindow?.orderOut(nil)
         for screen in NSScreen.screens {
@@ -133,6 +152,15 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
             content.addSubview(grid)
             let help = NSTextField(labelWithString:"Drag cells · ⌥ subdivide · ⌘± rows · ⇧⌘± columns")
             help.font = .systemFont(ofSize:11); help.textColor = .secondaryLabelColor; help.frame = CGRect(x:20,y:12,width:width-40,height:20); content.addSubview(help)
+            let statusLabel = NSTextField(wrappingLabelWithString: "")
+            statusLabel.font = .systemFont(ofSize: 11)
+            statusLabel.textColor = .secondaryLabelColor
+            statusLabel.frame = CGRect(x:20,y:38,width:width-40,height:52)
+            content.addSubview(statusLabel)
+            let enable = NSButton(title:"Enable window control…",target:self,action:#selector(requestWindowControl))
+            enable.frame = CGRect(x:20,y:8,width:185,height:26)
+            content.addSubview(enable)
+            panelStatusLabels.append(statusLabel); panelHelpLabels.append(help); panelPermissionButtons.append(enable)
             panel.onKey = { [weak self] event in self?.handle(event) ?? false }
             panel.onFlags = { [weak self] event in
                 let option = event.modifierFlags.contains(.option)
@@ -143,7 +171,30 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
             panel.alphaValue = config.animations ? 0 : 1; panel.orderFrontRegardless()
             if config.animations { NSAnimationContext.runAnimationGroup { context in context.duration = 0.12; panel.animator().alphaValue = 1 } }
         }
+        updatePanelStatus(issue)
         panels.first?.makeKey(); optionDown = false
+    }
+    func updatePanelStatus(_ issue: String?) {
+        permission = WindowDriver.trusted
+        let hasIssue = issue != nil
+        for i in panels.indices {
+            panelStatusLabels[i].stringValue = issue ?? ""
+            panelStatusLabels[i].isHidden = !hasIssue
+            panelHelpLabels[i].isHidden = hasIssue
+            panelPermissionButtons[i].isHidden = !hasIssue || permission
+            let y: CGFloat = hasIssue ? 104 : 42
+            let previous = grids[i].frame
+            grids[i].frame = CGRect(x:previous.minX,y:y,width:previous.width,height:previous.maxY-y)
+        }
+    }
+    @objc func requestWindowControl() {
+        WindowDriver.requestPermission()
+        updatePanelStatus("Enable OpenTile in System Settings → Privacy & Security → Accessibility, then try again.")
+    }
+    func reportPlacementError(_ error: Error) {
+        message = error.localizedDescription
+        if panels.isEmpty { presentTilePanels(captureTarget:false) }
+        updatePanelStatus(message)
     }
     var currentRows = 6, currentColumns = 6
     var optionDown = false
@@ -151,7 +202,9 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
         if !panels.isEmpty {
             UserDefaults.standard.set(currentRows,forKey:"sessionRows"); UserDefaults.standard.set(currentColumns,forKey:"sessionColumns"); UserDefaults.standard.set(currentSubdivision,forKey:"sessionSubdivision")
         }
-        panels.forEach { $0.orderOut(nil) }; panels = []; grids = []; previews.forEach { $0.orderOut(nil) }; previews = [] }
+        panels.forEach { $0.orderOut(nil) }; panels = []; grids = []
+        panelStatusLabels = []; panelHelpLabels = []; panelPermissionButtons = []
+        previews.forEach { $0.orderOut(nil) }; previews = [] }
     func showPreview(_ selection: GridSelection?, on screen: NSScreen) {
         previews.forEach { $0.orderOut(nil) }; previews = []
         guard config.preview, let selection, let frame = Geometry.frame(for:selection,in:WindowDriver.visibleFrame(screen),margins:config.margins) else { return }
@@ -185,7 +238,7 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
             if place(shortcut.selection,on:screen,shift:shift) {
                 lastShortcut = shortcut.id; lastWindow = driver.target?.element; lastAppliedFrame = driver.frame()
             }
-        } catch { message = error.localizedDescription; showSettings() }
+        } catch { reportPlacementError(error) }
     }
     @discardableResult func place(_ selection: GridSelection,on screen:NSScreen,shift:Bool) -> Bool {
         do {
@@ -196,7 +249,7 @@ final class AppController: NSObject, NSApplicationDelegate, ObservableObject {
             message = constrained ? "The application constrained this window’s size or position." : ""
             if config.keepOpen == shift { dismiss() } else { grids.forEach { $0.cancel() } }
             if constrained { refreshStatus() }; return true
-        } catch { message = error.localizedDescription; showSettings(); return false }
+        } catch { reportPlacementError(error); return false }
     }
     func importDivvy() {
         do {

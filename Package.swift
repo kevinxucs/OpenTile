@@ -5,6 +5,8 @@ let package = Package(name: "OpenTile", platforms: [.macOS(.v13)], products: [
     .executable(name: "OpenTile", targets: ["OpenTile"])
 ], targets: [
     .target(name: "OpenTileCore"),
-    .executableTarget(name: "OpenTile", dependencies: ["OpenTileCore"]),
-    .testTarget(name: "OpenTileCoreTests", dependencies: ["OpenTileCore"], exclude: ["Fixtures"])
+    .target(name: "OpenTileApp", dependencies: ["OpenTileCore"]),
+    .executableTarget(name: "OpenTile", dependencies: ["OpenTileCore", "OpenTileApp"]),
+    .testTarget(name: "OpenTileCoreTests", dependencies: ["OpenTileCore"], exclude: ["Fixtures"]),
+    .testTarget(name: "OpenTileAppTests", dependencies: ["OpenTileApp"])
 ], swiftLanguageModes: [.v5])

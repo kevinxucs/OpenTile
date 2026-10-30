@@ -7,7 +7,7 @@ struct ManagedWindow {
     let app: NSRunningApplication
 }
 
-final class WindowDriver {
+class WindowDriver {
     var target: ManagedWindow?
     var lastExternal: NSRunningApplication?
     static var trusted: Bool { AXIsProcessTrusted() }
@@ -16,6 +16,7 @@ final class WindowDriver {
         _ = AXIsProcessTrustedWithOptions(options)
     }
     func capture() throws {
+        target = nil
         guard Self.trusted else { throw ConfigError.invalid("Allow OpenTile in System Settings → Privacy & Security → Accessibility, then try again.") }
         let front = NSWorkspace.shared.frontmostApplication
         let app = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? lastExternal : front

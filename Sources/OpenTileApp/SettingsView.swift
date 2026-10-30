@@ -14,7 +14,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing:12) {
             HStack {
-                Image(systemName:"rectangle.split.3x3").font(.largeTitle)
+                Image(nsImage:NSApp.applicationIconImage).resizable().scaledToFit().frame(width:48,height:48)
                 VStack(alignment:.leading) { Text("OpenTile").font(.title.bold()); Text("Native grid window management").foregroundStyle(.secondary) }
                 Spacer()
                 Text(app.permission ? "Accessibility ready" : "Accessibility required").foregroundStyle(app.permission ? .green : .orange)

@@ -1,5 +1,6 @@
 import AppKit
 import OpenTileCore
+import OpenTileApp
 
 if CommandLine.arguments.contains("--audit-divvy") {
     do {
@@ -9,8 +10,5 @@ if CommandLine.arguments.contains("--audit-divvy") {
         print(String(decoding:try encoder.encode(config),as:UTF8.self))
     } catch { fputs("\(error.localizedDescription)\n",stderr); exit(1) }
 } else {
-    let application = NSApplication.shared
-    let delegate = AppController()
-    application.delegate = delegate
-    application.run()
+    runOpenTileApplication()
 }

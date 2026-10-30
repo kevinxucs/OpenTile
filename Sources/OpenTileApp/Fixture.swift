@@ -9,7 +9,7 @@ final class Fixture: NSObject, NSWindowDelegate {
     }
     func show() {
         if window != nil { window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true); return }
-        NSApp.setActivationPolicy(.regular)
+        NSApp.setActivationPolicy(.accessory)
         window = NSWindow(contentRect: CGRect(x: 100,y: 100,width: 800,height: 600), styleMask: [.titled,.closable,.resizable,.miniaturizable], backing: .buffered, defer: false)
         window.title = "OpenTile Validation Window"; window.minSize = CGSize(width: 80,height: 80); window.delegate = self
         label = NSTextField(wrappingLabelWithString: "")
