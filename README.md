@@ -1,5 +1,7 @@
 # OpenTile
 
+<img src="Assets/AppIcon.png" alt="OpenTile app icon" width="96" height="96">
+
 A native, open-source macOS grid window manager with Divvy shortcut migration.
 
 **Prerelease:** builds and unit tests pass. Exact placement parity and live system behavior still need validation; see [validation results](docs/VALIDATION.md).
@@ -12,6 +14,7 @@ A native, open-source macOS grid window manager with Divvy shortcut migration.
 - Option–Space activation, persistent panels, Shift dismissal reversal and repeated-shortcut screen cycling.
 - Local Divvy preference/archive import, Divvy import URLs and JSON import/export.
 - Menu visibility, interface animation, saved grid state and login launch.
+- Background operation without a Dock icon; activation opens the tile grid directly.
 - Accessibility errors, app constraint reporting and a dedicated validation fixture.
 
 macOS 13+, Swift 6, no third-party dependencies. Independent project, not affiliated with Mizage. No Divvy code or artwork is included.
@@ -24,7 +27,9 @@ macOS 13+, Swift 6, no third-party dependencies. Independent project, not affili
 open build/OpenTile.app
 ```
 
-Enable OpenTile in **System Settings → Privacy & Security → Accessibility**. Local ad-hoc rebuilds may require toggling that permission again. Quit Divvy before using overlapping global shortcuts, then use **Import & Export → Import local Divvy preferences**. Imports replace OpenTile's saved configuration; export first to keep a separate backup. Divvy's preferences are read only.
+Enable OpenTile in **System Settings → Privacy & Security → Accessibility**. Local ad-hoc rebuilds may require toggling that permission again. Quit Divvy before using overlapping global shortcuts, then open the grid's gear → **Import & Export → Import local Divvy preferences**. Imports replace OpenTile's saved configuration; export first to keep a separate backup. Divvy's preferences are read only.
+
+OpenTile launches in the background. Option–Space opens the tile grid, including when Accessibility permission is missing; a message inside the grid explains how to enable window control. Settings opens through the gear or menu item. For a direct settings launch, use `open build/OpenTile.app --args --settings`. Both OpenTile and its validation fixture stay out of the Dock.
 
 Configuration and its previous-save backup live in `~/Library/Application Support/OpenTile/`. Personal shortcuts, logs and binaries are excluded from Git.
 
@@ -52,6 +57,6 @@ open build/OpenTileFixture.app
 
 The Diagnostics tab runs live placements on the empty fixture and writes a local report. Live tests require Accessibility; unit tests do not. See [research](docs/FEATURES.md), [plan](docs/PLAN.md), [architecture](docs/ARCHITECTURE.md), and [contribution guide](CONTRIBUTING.md).
 
-Local Git only; add a remote when hosting is ready. Updates are manual until a release repository exists. Generic Accessibility-compatible windows are the initial target; app-specific Automation workarounds remain unvalidated.
+Source: [kevinxucs/OpenTile](https://github.com/kevinxucs/OpenTile). Updates are manual. Generic Accessibility-compatible windows are the initial target; app-specific Automation workarounds remain unvalidated.
 
 MIT licensed. Divvy is its owner's trademark.

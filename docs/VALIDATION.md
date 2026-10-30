@@ -4,6 +4,18 @@ Environment: macOS 27.2 (26B123), Apple Silicon, Xcode 27.2, Swift 6.4.2. One at
 
 ## Completed
 
+### Activation, Dock behavior and icon update
+
+- `./scripts/test.sh` with access to the macOS display session: **19 tests passed, zero failures, zero skips** (12 core tests plus 7 native AppKit regression tests). In a sandbox without a display connection the 7 AppKit checks skip explicitly.
+- Native regression checks cover grid presentation when window access fails, second-activation dismissal, Escape dismissal, placement failures staying in the grid, reopen routing, global-shortcut failure routing, and explicit Settings remaining under accessory activation policy.
+- Tests inject a failing window driver and do not inspect or reposition any external window.
+- The rebuilt app was opened in Finder and visually inspected: it displayed the tile grid and an inline Accessibility message rather than Settings.
+- Both app bundles declare `LSUIElement=true`; both use accessory activation policy. The validation fixture no longer switches to regular Dock-visible mode.
+- The generated icon master retains alpha. All 10 standard icon representations (16 through 1024 pixels) were checked, and the 128-pixel representation was visually inspected. Both bundles include a valid `.icns` resource and `CFBundleIconFile` entry.
+- Release build and strict signature verification passed for both bundles. On this restricted host `iconutil` required execution outside the sandbox to assemble the icon container.
+
+### Initial implementation checks
+
 - `./scripts/test.sh`: 12 XCTest cases passed, zero failures. Coverage includes inclusive cell bounds, 2× subdivisions, odd dimensions, negative monitor origins, edge/gap margins, invalid geometry, all grid sizes 1–10 and their subdivisions, binary archive and URL import, truncated archives, modifier normalization, duplicate keys, preference keys/defaults, JSON round trip and invalid configurations.
 - `./scripts/build-app.sh`: release app and validation fixture build successfully.
 - `codesign --verify --deep --strict build/OpenTile.app`: passed. Local ad-hoc signature only; no Developer ID notarization.
