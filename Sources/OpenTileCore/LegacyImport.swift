@@ -1,7 +1,10 @@
 import Foundation
 
 /// Restricted binary plist reader. Archive UIDs stay integer references; no classes are instantiated.
+private final class DecodeBudget { var visits = 0 }
+
 struct ArchiveReader {
+    private let budget = DecodeBudget()
     let bytes: [UInt8]
     let offsets: [Int]
     let refSize: Int
@@ -32,7 +35,8 @@ struct ArchiveReader {
         return Int(n)
     }
     func object(_ index: Int, depth: Int = 0) throws -> Any {
-        guard depth < 32, offsets.indices.contains(index) else { throw ConfigError.invalid("Invalid archive reference.") }
+        budget.visits += 1
+        guard budget.visits <= 200_000, depth < 32, offsets.indices.contains(index) else { throw ConfigError.invalid("Invalid archive reference.") }
         let p = offsets[index], marker = bytes[p], kind = marker >> 4, info = Int(marker & 15)
         var start = p+1, count = info
         if [4,5,6,10,13].contains(Int(kind)), info == 15 {
@@ -100,9 +104,9 @@ public enum DivvyImport {
             c.activation = KeyBinding(keyCode: code, modifiers: KeyBinding.normalize(flags))
         }
         c.margins.enabled = p["enableMargins"] as? Bool ?? false
-        c.margins.left = p["marginLeft"] as? Double ?? 10; c.margins.right = p["marginRight"] as? Double ?? 10
-        c.margins.top = p["marginTop"] as? Double ?? 10; c.margins.bottom = p["marginBottom"] as? Double ?? 10
-        c.margins.horizontal = p["marginWidth"] as? Double ?? 10; c.margins.vertical = p["marginHeight"] as? Double ?? 10
+        c.margins.left = p["defaultScreenMarginLeft"] as? Double ?? 10; c.margins.right = p["defaultScreenMarginRight"] as? Double ?? 10
+        c.margins.top = p["defaultScreenMarginTop"] as? Double ?? 10; c.margins.bottom = p["defaultScreenMarginBottom"] as? Double ?? 10
+        c.margins.horizontal = p["defaultWindowMarginWidth"] as? Double ?? 10; c.margins.vertical = p["defaultWindowMarginHeight"] as? Double ?? 10
         if let data = p["shortcuts"] as? Data { c.shortcuts = try shortcuts(from: data) }
         return try c.validated()
     }

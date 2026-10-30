@@ -2,11 +2,12 @@ import AppKit
 import OpenTileCore
 
 final class TilePanel: NSPanel {
-    var onKey: ((NSEvent) -> Void)?
+    var onKey: ((NSEvent) -> Bool)?
     var onFlags: ((NSEvent) -> Void)?
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
-    override func keyDown(with event: NSEvent) { onKey?(event) }
+    override func keyDown(with event: NSEvent) { if onKey?(event) != true { super.keyDown(with:event) } }
+    override func performKeyEquivalent(with event:NSEvent) -> Bool { onKey?(event) == true || super.performKeyEquivalent(with:event) }
     override func flagsChanged(with event: NSEvent) { onFlags?(event) }
 }
 

@@ -96,7 +96,7 @@ public struct Configuration: Codable, Equatable, Sendable {
               !activationEnabled || activation.modifiers != 0,
               Set(shortcuts.map(\.id)).count == shortcuts.count,
               shortcuts.allSatisfy({ $0.selection.isValid && $0.binding.keyCode <= 127 &&
-                  $0.binding.modifiers == KeyBinding.normalize($0.binding.modifiers) && (!$0.global || $0.binding.modifiers != 0) })
+                  $0.binding.modifiers == KeyBinding.normalize($0.binding.modifiers) && (!$0.enabled || !$0.global || $0.binding.modifiers != 0) })
         else { throw ConfigError.invalid("Invalid grid, margins, key binding, or configuration version.") }
         var keys = Set<KeyBinding>()
         if activationEnabled { keys.insert(activation) }

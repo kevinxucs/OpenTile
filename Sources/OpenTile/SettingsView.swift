@@ -24,6 +24,7 @@ struct SettingsView: View {
                 appearance.tabItem { Text("Grid & Margins") }
                 shortcuts.tabItem { Text("Shortcuts") }
                 migration.tabItem { Text("Import & Export") }
+                diagnostics.tabItem { Text("Diagnostics") }
             }
             Text(app.message).font(.callout).foregroundStyle(.secondary).frame(maxWidth:.infinity,alignment:.leading).lineLimit(4).frame(minHeight:45)
             HStack {
@@ -90,6 +91,17 @@ struct SettingsView: View {
             HStack { Button("New Shortcut") { editor = Shortcut(name:"",binding:KeyBinding(keyCode:0),selection:GridSelection(rows:draft.rows,columns:draft.columns,endRow:draft.rows-1,endColumn:draft.columns-1)) }.keyboardShortcut("n",modifiers:.command); Spacer(); Text("\(draft.shortcuts.count) shortcuts · Save applies changes").foregroundStyle(.secondary) }
         }.padding(12)
     }
+    var diagnostics: some View {
+        Form {
+            Text("Live placement checks")
+            Text("Open OpenTileFixture.app from the build folder. This empty test window records its frame locally. The acceptance check applies each saved placement through OpenTile’s real window driver, verifies it, and restores the original frame.").font(.callout).foregroundStyle(.secondary)
+            Button("Validate placements on test fixture") { app.validateFixture() }
+            Text("Compare another window")
+            Text("Inspect saves the focused window’s current frame. After a Divvy placement, inspect again to measure the result. Restore returns the first inspected window to its original frame. Reports contain coordinates only.").font(.callout).foregroundStyle(.secondary)
+            HStack { Button("Inspect active window") { app.inspectActiveWindow() }; Button("Restore inspected window") { app.restoreObservedWindow() } }
+        }.formStyle(.grouped)
+    }
+
     var migration: some View {
         Form {
             Text("Import preserves physical key codes and exact saved cell coordinates, including half-cell subdivisions. Import replaces OpenTile’s saved configuration. Export first to keep a backup.")
@@ -141,10 +153,11 @@ struct EditorGrid: NSViewRepresentable {
 struct KeyRecorder: NSViewRepresentable {
     @Binding var value: KeyBinding
     func makeNSView(context:Context)->RecorderButton { let button = RecorderButton(); button.target = button; button.action = #selector(RecorderButton.record); return button }
-    func updateNSView(_ button:RecorderButton,context:Context) { if !button.recording { button.title = keyLabel(value) }; button.changed = { value = $0 } }
+    func updateNSView(_ button:RecorderButton,context:Context) { if !button.recording { button.title = keyLabel(value) }; button.originalTitle = keyLabel(value); button.changed = { value = $0 } }
 }
 final class RecorderButton: NSButton {
     var recording = false
+    var originalTitle = ""
     var changed: ((KeyBinding)->Void)?
     override var acceptsFirstResponder: Bool { true }
     @objc func record() { recording = true; title = "Press shortcut… (Esc cancels)"; window?.makeFirstResponder(self) }
@@ -152,8 +165,12 @@ final class RecorderButton: NSButton {
         guard recording else { super.keyDown(with:event); return }
         recording = false
         if event.keyCode != 53 { let key = binding(for:event); changed?(key); title = keyLabel(key) }
-        else { title = "Click to record" }
+        else { title = originalTitle }
         window?.makeFirstResponder(nil)
+    }
+    override func resignFirstResponder() -> Bool {
+        if recording { recording = false; title = originalTitle }
+        return super.resignFirstResponder()
     }
     override func performKeyEquivalent(with event:NSEvent)->Bool { if recording { keyDown(with:event); return true }; return super.performKeyEquivalent(with:event) }
 }
